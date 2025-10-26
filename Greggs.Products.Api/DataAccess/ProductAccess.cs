@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Greggs.Products.Api.Models;
 
 namespace Greggs.Products.Api.DataAccess;
@@ -21,7 +22,8 @@ public class ProductAccess : IDataAccess<Product>
         new() { Name = "Coca Cola", PriceInPounds = 1.2m }
     };
 
-    public IEnumerable<Product> List(int? pageStart, int? pageSize)
+
+    public Task<IEnumerable<Product>> ListAsync(int? pageStart, int? pageSize)
     {
         var queryable = ProductDatabase.AsQueryable();
 
@@ -31,6 +33,6 @@ public class ProductAccess : IDataAccess<Product>
         if (pageSize.HasValue)
             queryable = queryable.Take(pageSize.Value);
 
-        return queryable.ToList();
+        return Task.FromResult(queryable.ToList().AsEnumerable());
     }
 }

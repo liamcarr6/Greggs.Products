@@ -1,13 +1,10 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using Greggs.Products.Api.DataAccess;
 using Greggs.Products.Api.Dtos;
-using Greggs.Products.Api.Mappings;
 using Greggs.Products.Api.Models;
 using Greggs.Products.Api.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
 
@@ -28,13 +25,18 @@ public class ProductServiceTests
             .Setup(d => d.ListAsync(It.IsAny<int?>(), It.IsAny<int?>()))
             .ReturnsAsync(products);
 
-        var services = new ServiceCollection()
-            .AddLogging()
-            .AddAutoMapper(cfg => cfg.AddProfile<ProductProfile>());
-        var provider = services.BuildServiceProvider();
-        var mapper = provider.GetRequiredService<IMapper>();
+        var currencyConverterMock = new Mock<ICurrencyConverter>();
+        currencyConverterMock
+            .Setup(c => c.GetSupportedCurrencies())
+            .Returns(new[] { "GBP", "EUR" });
+        currencyConverterMock
+            .Setup(c => c.ConvertFromGbp(It.IsAny<decimal>(), "GBP"))
+            .Returns<decimal, string>((amount, _) => amount);
+        currencyConverterMock
+            .Setup(c => c.ConvertFromGbp(It.IsAny<decimal>(), "EUR"))
+            .Returns<decimal, string>((amount, _) => amount * 1.11m);
 
-        var service = new ProductService(dataAccessMock.Object, mapper);
+        var service = new ProductService(dataAccessMock.Object, currencyConverterMock.Object);
 
         // Act
         var result = (await service.GetProductsAsync(null, null)).ToList();
@@ -42,11 +44,35 @@ public class ProductServiceTests
         // Assert
         Assert.Equal(2, result.Count);
         Assert.Equal("Sausage Roll", result[0].Name);
-        Assert.Single(result[0].Prices);
-        Assert.Equal(1.0m, result[0].Prices[0].Price);
-        Assert.Equal("GBP", result[0].Prices[0].Currency);
-        Assert.Equal("Steak Bake", result[1].Name);
-        Assert.Single(result[1].Prices);
-        Assert.Equal(1.2m, result[1].Prices[0].Price);
+        Assert.Equal(2, result[0].Prices.Count);
+        Assert.Contains(result[0].Prices, p => p.Currency == "GBP" && p.Price == 1.0m);
+        Assert.Contains(result[0].Prices, p => p.Currency == "EUR" && p.Price == 1.11m);
+    }
+
+    [Fact]
+    public async Task GetProductsAsync_ReturnsMappedProductsWithPrices()
+    {
+        // Arrange
+        var products = new List<Product> { new Product { Name = "Test Product", PriceInPounds = 1.0m } };
+        
+        var dataAccessMock = new Mock<IDataAccess<Product>>();
+        dataAccessMock.Setup(d => d.ListAsync(null, null)).ReturnsAsync(products);
+        
+        var currencyConverterMock = new Mock<ICurrencyConverter>();
+        currencyConverterMock.Setup(c => c.GetSupportedCurrencies()).Returns(new[] { "GBP", "EUR" });
+        currencyConverterMock.Setup(c => c.ConvertFromGbp(1.0m, "GBP")).Returns(1.0m);
+        currencyConverterMock.Setup(c => c.ConvertFromGbp(1.0m, "EUR")).Returns(1.11m);
+        
+        var service = new ProductService(dataAccessMock.Object, currencyConverterMock.Object);
+
+        // Act
+        var result = (await service.GetProductsAsync(null, null)).ToList();
+
+        // Assert
+        Assert.Single(result);
+        Assert.Equal("Test Product", result[0].Name);
+        Assert.Equal(2, result[0].Prices.Count);
+        Assert.Contains(result[0].Prices, p => p.Currency == "GBP" && p.Price == 1.0m);
+        Assert.Contains(result[0].Prices, p => p.Currency == "EUR" && p.Price == 1.11m);
     }
 }

@@ -1,12 +1,11 @@
-using AutoMapper;
 using Greggs.Products.Api.DataAccess;
-using Greggs.Products.Api.Mappings;
 using Greggs.Products.Api.Models;
 using Greggs.Products.Api.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Greggs.Products.Api.Middleware;
 
 namespace Greggs.Products.Api;
 
@@ -16,10 +15,8 @@ public class Startup
     {
         services.AddControllers();
         services.AddSwaggerGen();
-        services.AddAutoMapper(
-            cfg => {},
-            typeof(ProductProfile) 
-        );
+        
+        services.AddSingleton<ICurrencyConverter, CurrencyConverter>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IDataAccess<Product>, ProductAccess>();
     }
@@ -30,12 +27,18 @@ public class Startup
         {
             app.UseDeveloperExceptionPage();
         }
+        else
+        {
+            app.UseMiddleware<ExceptionHandlingMiddleware>();
+        }
 
         app.UseSwagger();
         app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "Greggs Products API V1"); });
+        
         app.UseHttpsRedirection();
         app.UseRouting();
         app.UseAuthorization();
+        
         app.UseEndpoints(endpoints => { endpoints.MapControllers(); });
     }
 }

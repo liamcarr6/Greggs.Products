@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Greggs.Products.Api.Controllers;
@@ -10,24 +11,49 @@ using Xunit;
 public class ProductsControllerTests
 {
     [Fact]
-    public async Task Get_ReturnsOk_WithProductDtos()
+    public async Task Get_ReturnsOk_WithProducts()
     {
         // Arrange
-        var dtos = new List<ProductDto>
-        {
-            new ProductDto { Name = "Yum Yum", Prices = new List<PriceDto> { new PriceDto { Price = 0.99m, Currency = "GBP" } } }
-        };
-        var serviceMock = new Mock<IProductService>();
-        serviceMock.Setup(s => s.GetProductsAsync(null, null)).ReturnsAsync(dtos);
-
-        var controller = new ProductsController(serviceMock.Object, null);
+        var mockService = new Mock<IProductService>();
+        mockService.Setup(s => s.GetProductsAsync(null, null))
+               .ReturnsAsync(new List<ProductDto> { new ProductDto { Name = "Test Product" } });
+        var controller = new ProductsController(mockService.Object);
 
         // Act
         var result = await controller.Get();
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
-        var returnedDtos = Assert.IsAssignableFrom<IEnumerable<ProductDto>>(okResult.Value);
-        Assert.Single(returnedDtos);
+        Assert.IsAssignableFrom<IEnumerable<ProductDto>>(okResult.Value);
+    }
+
+    [Theory]
+    [InlineData(-1, 10, "Page start cannot be negative")]
+    [InlineData(0, 0, "Page size must be greater than zero")]
+    [InlineData(0, 101, "Page size cannot exceed 100")]
+    public async Task Get_WithInvalidInput_ThrowsArgumentException(int? pageStart, int? pageSize, string expectedMessage)
+    {
+        // Arrange
+        var mockService = new Mock<IProductService>();
+        var controller = new ProductsController(mockService.Object);
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => controller.Get(pageStart, pageSize));
+        Assert.Equal(expectedMessage, exception.Message);
+    }
+
+    [Fact]
+    public async Task Get_WithValidPagination_CallsServiceCorrectly()
+    {
+        // Arrange
+        var mockService = new Mock<IProductService>();
+        mockService.Setup(s => s.GetProductsAsync(5, 10)).ReturnsAsync(new List<ProductDto>());
+        var controller = new ProductsController(mockService.Object);
+
+        // Act
+        await controller.Get(5, 10);
+
+        // Assert
+        mockService.Verify(s => s.GetProductsAsync(5, 10), Times.Once);
     }
 }

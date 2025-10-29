@@ -1,3 +1,25 @@
+# Greggs Products API
+
+A REST API for retrieving Greggs products with multi-currency pricing support.
+
+## Features
+- Product listing with pagination
+- Multi-currency pricing (GBP, EUR)
+- Global exception handling
+- Comprehensive unit tests
+- Swagger documentation
+
+## Endpoints
+- `GET /api/products` - Get paginated product list
+- Query parameters: `pageStart`, `pageSize`
+
+## Technologies
+- .NET 6
+- ASP.NET Core Web API
+- xUnit (testing)
+- Swagger/OpenAPI
+
+
 # Greggs.Products
 ## Introduction
 Hello and welcome to the Greggs Products repository, thanks for finding it!
